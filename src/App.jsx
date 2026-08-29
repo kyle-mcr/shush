@@ -14,7 +14,10 @@ const { Text } = Typography;
 const BLACKOUT_DELAY = 6500;
 const HOLD_DURATION = 800;
 const SLEEP_FADE_DURATION = 60_000;
-const MOON_TEXTURE_URL = `${import.meta.env.BASE_URL}moon-texture.png`;
+const MOON_TEXTURE_URL = new URL(
+  `${import.meta.env.BASE_URL}moon-texture.png`,
+  window.location.href,
+).href;
 
 function savedVolume() {
   try {
