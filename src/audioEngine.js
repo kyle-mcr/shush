@@ -77,6 +77,14 @@ class ProceduralShushEngine {
     }
   }
 
+  pause() {
+    return this.context?.suspend() ?? Promise.resolve();
+  }
+
+  resume() {
+    return this.context?.resume() ?? Promise.resolve();
+  }
+
   stop() {
     void this.fadeOutAndStop(450);
   }
@@ -107,6 +115,9 @@ export class ShushEngine {
     this.audio = null;
     this.fadingAudio = null;
     this.fallback = null;
+    this.context = null;
+    this.source = null;
+    this.gain = null;
     this.fadeFrame = null;
     this.fadeResolve = null;
     this.volume = 1;
@@ -116,14 +127,36 @@ export class ShushEngine {
     const audio = new Audio(`${import.meta.env.BASE_URL}audio/soothing-shush.m4a`);
     audio.loop = true;
     audio.preload = 'auto';
-    audio.volume = 0;
+    audio.volume = 1;
     this.audio = audio;
 
     try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        const context = new AudioContext();
+        const source = context.createMediaElementSource(audio);
+        const gain = context.createGain();
+        gain.gain.setValueAtTime(0, context.currentTime);
+        source.connect(gain).connect(context.destination);
+        this.context = context;
+        this.source = source;
+        this.gain = gain;
+        await context.resume();
+      } else {
+        audio.volume = 0;
+      }
+
       await audio.play();
       this.fadeAudioTo(this.volume, 1200);
     } catch {
+      audio.pause();
+      this.source?.disconnect();
+      this.gain?.disconnect();
+      void this.context?.close();
       this.audio = null;
+      this.context = null;
+      this.source = null;
+      this.gain = null;
       const fallback = new ProceduralShushEngine();
       fallback.setVolume(this.volume);
       this.fallback = fallback;
@@ -132,6 +165,20 @@ export class ShushEngine {
   }
 
   fadeAudioTo(target, duration) {
+    if (this.gain && this.context) {
+      const now = this.context.currentTime;
+      const parameter = this.gain.gain;
+      if ('cancelAndHoldAtTime' in parameter) {
+        parameter.cancelAndHoldAtTime(now);
+      } else {
+        const current = parameter.value;
+        parameter.cancelScheduledValues(now);
+        parameter.setValueAtTime(current, now);
+      }
+      parameter.linearRampToValueAtTime(target, now + duration / 1000);
+      return;
+    }
+
     if (!this.audio) return;
     cancelAnimationFrame(this.fadeFrame);
     const audio = this.audio;
@@ -153,8 +200,34 @@ export class ShushEngine {
     this.fallback?.setVolume(value);
   }
 
+  async pause() {
+    cancelAnimationFrame(this.fadeFrame);
+
+    if (this.gain && this.context) {
+      const now = this.context.currentTime;
+      this.gain.gain.cancelScheduledValues(now);
+      this.gain.gain.setValueAtTime(0, now);
+    }
+
+    this.audio?.pause();
+    await this.context?.suspend();
+    await this.fallback?.pause();
+  }
+
+  async resume() {
+    if (this.fallback) {
+      await this.fallback.resume();
+      return;
+    }
+    if (!this.audio) return;
+
+    await this.context?.resume();
+    await this.audio.play();
+    this.fadeAudioTo(this.volume, 280);
+  }
+
   stop() {
-    void this.fadeOutAndStop(450);
+    return this.fadeOutAndStop(450);
   }
 
   fadeOutAndStop(duration) {
@@ -173,6 +246,40 @@ export class ShushEngine {
 
     this.audio = null;
     this.fadingAudio = audio;
+    const context = this.context;
+    const source = this.source;
+    const gain = this.gain;
+    this.context = null;
+    this.source = null;
+    this.gain = null;
+
+    if (context && gain) {
+      const now = context.currentTime;
+      const parameter = gain.gain;
+      if ('cancelAndHoldAtTime' in parameter) {
+        parameter.cancelAndHoldAtTime(now);
+      } else {
+        const current = parameter.value;
+        parameter.cancelScheduledValues(now);
+        parameter.setValueAtTime(current, now);
+      }
+      parameter.linearRampToValueAtTime(0, now + duration / 1000);
+
+      return new Promise((resolve) => {
+        this.fadeResolve = resolve;
+        window.setTimeout(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          source?.disconnect();
+          gain.disconnect();
+          void context.close();
+          if (this.fadingAudio === audio) this.fadingAudio = null;
+          this.fadeResolve = null;
+          resolve();
+        }, duration + 50);
+      });
+    }
+
     const initial = audio.volume;
     const startedAt = performance.now();
 

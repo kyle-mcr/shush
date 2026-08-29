@@ -18,6 +18,33 @@ const MOON_TEXTURE_URL = new URL(
   `${import.meta.env.BASE_URL}moon-texture.png`,
   window.location.href,
 ).href;
+const MEDIA_ARTWORK_URL = new URL(
+  `${import.meta.env.BASE_URL}media-artwork.png`,
+  window.location.href,
+).href;
+const MEDIA_ICON_URL = new URL(
+  `${import.meta.env.BASE_URL}icon-192.png`,
+  window.location.href,
+).href;
+
+function updateMediaMetadata() {
+  if (!('mediaSession' in navigator) || !('MediaMetadata' in window)) return;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: 'Shush',
+    artist: 'Soft shushing & white noise',
+    album: 'Night Sky',
+    artwork: [
+      { src: MEDIA_ICON_URL, sizes: '192x192', type: 'image/png' },
+      { src: MEDIA_ARTWORK_URL, sizes: '512x512', type: 'image/png' },
+    ],
+  });
+}
+
+function updateExternalPlaybackState(isPlaying) {
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+  }
+}
 
 function savedVolume() {
   try {
@@ -40,6 +67,8 @@ export default function App() {
   const launchTimer = useRef(null);
   const suppressNextTap = useRef(false);
   const mediaActions = useRef({});
+  const wantsPlayback = useRef(false);
+  const playbackTransition = useRef(null);
 
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -50,9 +79,10 @@ export default function App() {
   const [locked, setLocked] = useState(false);
   const [holdingLock, setHoldingLock] = useState(false);
   const [timerOpen, setTimerOpen] = useState(false);
+  const [timerStartedAt, setTimerStartedAt] = useState(null);
   const [timerEndAt, setTimerEndAt] = useState(null);
   const [activityTick, setActivityTick] = useState(0);
-  const [, setClockTick] = useState(0);
+  const [clockTick, setClockTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,10 +107,11 @@ export default function App() {
     };
   }, []);
 
-  const stopPlayback = useCallback(() => {
+  const pausePlayback = useCallback(() => {
+    wantsPlayback.current = false;
     window.clearTimeout(launchTimer.current);
-    engine.current?.stop();
-    engine.current = null;
+    void engine.current?.pause();
+    updateExternalPlaybackState(false);
     setPlaying(false);
     setLoading(false);
     setLaunching(false);
@@ -88,30 +119,58 @@ export default function App() {
     setBlackedOut(false);
   }, []);
 
-  const startPlayback = useCallback(async () => {
-    if (engine.current || loading) return;
+  const startPlayback = useCallback(() => {
+    if (wantsPlayback.current) return playbackTransition.current ?? Promise.resolve();
+    wantsPlayback.current = true;
+    if (playbackTransition.current) return playbackTransition.current;
 
-    const nextEngine = new ShushEngine();
-    nextEngine.setVolume(volume / 100);
-    engine.current = nextEngine;
-    setLoading(true);
-    setLaunching(true);
-    window.clearTimeout(launchTimer.current);
-    launchTimer.current = window.setTimeout(() => setLaunching(false), 1250);
+    const request = (async () => {
+      let activeEngine = engine.current;
+      const isNewEngine = !activeEngine;
 
-    try {
-      await nextEngine.start();
-      setPlaying(true);
-      setActivityTick((tick) => tick + 1);
-    } catch {
-      window.clearTimeout(launchTimer.current);
-      setLaunching(false);
-      nextEngine.stop();
-      engine.current = null;
-    } finally {
-      setLoading(false);
-    }
-  }, [loading, volume]);
+      if (!activeEngine) {
+        activeEngine = new ShushEngine();
+        activeEngine.setVolume(volume / 100);
+        engine.current = activeEngine;
+        setLaunching(true);
+        window.clearTimeout(launchTimer.current);
+        launchTimer.current = window.setTimeout(() => setLaunching(false), 1250);
+      }
+
+      setLoading(true);
+      updateMediaMetadata();
+
+      try {
+        if (isNewEngine) await activeEngine.start();
+        else await activeEngine.resume();
+
+        if (!wantsPlayback.current) {
+          await activeEngine.pause();
+          return;
+        }
+
+        updateMediaMetadata();
+        updateExternalPlaybackState(true);
+        setPlaying(true);
+        setActivityTick((tick) => tick + 1);
+      } catch {
+        wantsPlayback.current = false;
+        window.clearTimeout(launchTimer.current);
+        setLaunching(false);
+        void activeEngine.stop();
+        if (engine.current === activeEngine) engine.current = null;
+        updateExternalPlaybackState(false);
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    playbackTransition.current = request;
+    void request.finally(() => {
+      if (playbackTransition.current === request) playbackTransition.current = null;
+    });
+    return request;
+  }, [volume]);
 
   const togglePlayback = () => {
     if (suppressNextTap.current) {
@@ -119,7 +178,7 @@ export default function App() {
       return;
     }
     if (locked || loading) return;
-    if (playing) stopPlayback();
+    if (playing) pausePlayback();
     else startPlayback();
   };
 
@@ -176,7 +235,9 @@ export default function App() {
   const cancelTimerHold = () => window.clearTimeout(timerHoldTimer.current);
 
   const chooseTimer = (minutes) => {
-    setTimerEndAt(minutes ? Date.now() + minutes * 60_000 : null);
+    const now = Date.now();
+    setTimerStartedAt(minutes ? now : null);
+    setTimerEndAt(minutes ? now + minutes * 60_000 : null);
     setTimerOpen(false);
     setActivityTick((tick) => tick + 1);
   };
@@ -198,10 +259,13 @@ export default function App() {
     sleepTimer.current = window.setTimeout(async () => {
       await activeEngine.fadeOutAndStop(SLEEP_FADE_DURATION);
       if (engine.current === activeEngine) {
+        wantsPlayback.current = false;
         engine.current = null;
+        updateExternalPlaybackState(false);
         setPlaying(false);
         setLocked(false);
         setBlackedOut(false);
+        setTimerStartedAt(null);
         setTimerEndAt(null);
       }
     }, delay);
@@ -216,21 +280,13 @@ export default function App() {
   }, [timerEndAt]);
 
   useEffect(() => {
-    mediaActions.current = { play: startPlayback, pause: stopPlayback };
-  }, [startPlayback, stopPlayback]);
+    mediaActions.current = { play: startPlayback, pause: pausePlayback };
+  }, [startPlayback, pausePlayback]);
 
   useEffect(() => {
     if (!('mediaSession' in navigator)) return undefined;
 
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: 'Shush',
-      artist: 'Soft shushing & white noise',
-      artwork: [{
-        src: new URL(`${import.meta.env.BASE_URL}icon-512.png`, window.location.href).href,
-        sizes: '512x512',
-        type: 'image/png',
-      }],
-    });
+    updateMediaMetadata();
 
     const handlers = {
       play: () => mediaActions.current.play?.(),
@@ -250,12 +306,31 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
-    }
+    updateExternalPlaybackState(playing);
   }, [playing]);
 
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
+
+    try {
+      if (!timerStartedAt || !timerEndAt) {
+        navigator.mediaSession.setPositionState();
+        return;
+      }
+
+      const duration = Math.max((timerEndAt - timerStartedAt) / 1000, 1);
+      const position = Math.min(
+        Math.max((Date.now() - timerStartedAt) / 1000, 0),
+        Math.max(duration - 0.01, 0),
+      );
+      navigator.mediaSession.setPositionState({ duration, playbackRate: 1, position });
+    } catch {
+      // Some older mobile browsers expose Media Session without position state.
+    }
+  }, [timerStartedAt, timerEndAt, playing, clockTick]);
+
   useEffect(() => () => {
+    wantsPlayback.current = false;
     window.clearTimeout(lockHoldTimer.current);
     window.clearTimeout(timerHoldTimer.current);
     window.clearTimeout(sleepTimer.current);
@@ -370,18 +445,6 @@ export default function App() {
             <>
               <Button
                 type="text"
-                className={holdingLock ? 'utility-button is-holding' : 'utility-button'}
-                icon={locked ? <LockOutlined /> : <UnlockOutlined />}
-                onPointerDown={beginLockHold}
-                onPointerUp={cancelLockHold}
-                onPointerLeave={cancelLockHold}
-                onContextMenu={(event) => event.preventDefault()}
-                aria-label={locked ? 'Press and hold to unlock controls' : 'Press and hold to lock controls'}
-              >
-                {locked ? 'Hold to unlock' : 'Hold to lock'}
-              </Button>
-              <Button
-                type="text"
                 className="utility-button"
                 icon={<ClockCircleOutlined />}
                 onClick={openTimer}
@@ -391,6 +454,18 @@ export default function App() {
                 aria-label={timerMinutes ? `Sleep timer, ${timerMinutes} minutes remaining` : 'Open sleep timer'}
               >
                 {timerMinutes ? `${timerMinutes} min` : 'Timer'}
+              </Button>
+              <Button
+                type="text"
+                className={holdingLock ? 'utility-button is-holding' : 'utility-button'}
+                icon={locked ? <LockOutlined /> : <UnlockOutlined />}
+                onPointerDown={beginLockHold}
+                onPointerUp={cancelLockHold}
+                onPointerLeave={cancelLockHold}
+                onContextMenu={(event) => event.preventDefault()}
+                aria-label={locked ? 'Press and hold to unlock controls' : 'Press and hold to lock controls'}
+              >
+                {locked ? 'Hold to unlock' : 'Hold to lock'}
               </Button>
             </>
           )}
