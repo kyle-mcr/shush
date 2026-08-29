@@ -11,7 +11,7 @@ import { Button, Drawer, Slider, Typography } from 'antd';
 import {
   ShushEngine,
   SUPPORTS_SOFTWARE_VOLUME,
-  USE_NATIVE_MEDIA_RESUME,
+  USE_NATIVE_MEDIA_CONTROLS,
 } from './audioEngine';
 
 const { Text } = Typography;
@@ -321,16 +321,14 @@ export default function App() {
 
     updateMediaMetadata();
 
+    // Native iOS controls remain responsive while the PWA is suspended.
+    if (USE_NATIVE_MEDIA_CONTROLS) return undefined;
+
     const handlers = {
+      play: () => mediaActions.current.play?.(),
       pause: () => mediaActions.current.pause?.(),
       stop: () => mediaActions.current.pause?.(),
     };
-
-    // In backgrounded iOS PWAs, native resume remains available while page
-    // JavaScript may be suspended. Other platforms can use the custom handler.
-    if (!USE_NATIVE_MEDIA_RESUME) {
-      handlers.play = () => mediaActions.current.play?.();
-    }
 
     Object.entries(handlers).forEach(([action, handler]) => {
       try { navigator.mediaSession.setActionHandler(action, handler); } catch { /* unsupported action */ }
