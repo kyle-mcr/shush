@@ -235,8 +235,8 @@ button, input { font: inherit; }
 
 .play-button.ant-btn {
   --moon-surface:
-    linear-gradient(128deg, rgba(87, 104, 96, .04), rgba(2, 7, 4, .2)),
-    url('./assets/moon-texture.png') center / 108% 108% no-repeat,
+    radial-gradient(circle at 29% 23%, rgba(119, 139, 129, .13), transparent 37%),
+    radial-gradient(circle at 66% 70%, #111915 0%, #18221e 52%, #202c27 100%),
     #18221e;
   position: relative;
   z-index: 2;
@@ -261,9 +261,26 @@ button, input { font: inherit; }
   -webkit-tap-highlight-color: transparent;
 }
 
+.play-button.ant-btn::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(128deg, rgba(87, 104, 96, .04), rgba(2, 7, 4, .2)),
+    var(--moon-texture) center / 108% 108% no-repeat;
+  opacity: 0;
+  transition: opacity .65s ease;
+}
+
+.play-button.ant-btn.is-texture-ready::before { opacity: 1; }
+
 .play-button.ant-btn::after {
   content: '';
   position: absolute;
+  z-index: 1;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;

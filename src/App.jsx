@@ -14,10 +14,14 @@ const { Text } = Typography;
 const BLACKOUT_DELAY = 6500;
 const HOLD_DURATION = 800;
 const SLEEP_FADE_DURATION = 60_000;
+const MOON_TEXTURE_URL = `${import.meta.env.BASE_URL}moon-texture.png`;
 
 function savedVolume() {
   try {
-    const value = Number(window.localStorage.getItem('shush-volume'));
+    const saved = window.localStorage.getItem('shush-volume');
+    if (saved === null) return 100;
+
+    const value = Number(saved);
     return Number.isFinite(value) && value >= 0 && value <= 100 ? value : 100;
   } catch {
     return 100;
@@ -37,6 +41,7 @@ export default function App() {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [launching, setLaunching] = useState(false);
+  const [moonTextureReady, setMoonTextureReady] = useState(false);
   const [volume, setVolume] = useState(savedVolume);
   const [blackedOut, setBlackedOut] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -45,6 +50,29 @@ export default function App() {
   const [timerEndAt, setTimerEndAt] = useState(null);
   const [activityTick, setActivityTick] = useState(0);
   const [, setClockTick] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const texture = new Image();
+
+    const revealTexture = async () => {
+      try {
+        await texture.decode?.();
+      } catch {
+        // A completed image is still safe to reveal when decode() is unavailable.
+      }
+      if (!cancelled) setMoonTextureReady(true);
+    };
+
+    texture.addEventListener('load', revealTexture, { once: true });
+    texture.src = MOON_TEXTURE_URL;
+    if (texture.complete && texture.naturalWidth) void revealTexture();
+
+    return () => {
+      cancelled = true;
+      texture.removeEventListener('load', revealTexture);
+    };
+  }, []);
 
   const stopPlayback = useCallback(() => {
     window.clearTimeout(launchTimer.current);
@@ -306,7 +334,12 @@ export default function App() {
           <Button
             type="primary"
             shape="circle"
-            className={holdingLock ? 'play-button is-holding' : 'play-button'}
+            className={[
+              'play-button',
+              holdingLock && 'is-holding',
+              moonTextureReady && 'is-texture-ready',
+            ].filter(Boolean).join(' ')}
+            style={{ '--moon-texture': `url("${MOON_TEXTURE_URL}")` }}
             icon={locked
               ? <LockOutlined />
               : (
