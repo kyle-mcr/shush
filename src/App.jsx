@@ -18,13 +18,6 @@ const { Text } = Typography;
 const BLACKOUT_DELAY = 6500;
 const HOLD_DURATION = 800;
 const SLEEP_FADE_DURATION = 60_000;
-const TIMER_OPTIONS = [
-  { label: '10 seconds', duration: 10_000 },
-  { label: '10 minutes', duration: 10 * 60_000 },
-  { label: '20 minutes', duration: 20 * 60_000 },
-  { label: '30 minutes', duration: 30 * 60_000 },
-  { label: '60 minutes', duration: 60 * 60_000 },
-];
 const MOON_TEXTURE_URL = new URL(
   `${import.meta.env.BASE_URL}moon-texture.png`,
   window.location.href,
@@ -272,11 +265,11 @@ export default function App() {
 
   const cancelTimerHold = () => window.clearTimeout(timerHoldTimer.current);
 
-  const chooseTimer = (duration) => {
+  const chooseTimer = (minutes) => {
     const now = Date.now();
-    timerPausedAt.current = duration && !playing ? now : null;
-    setTimerStartedAt(duration ? now : null);
-    setTimerEndAt(duration ? now + duration : null);
+    timerPausedAt.current = minutes && !playing ? now : null;
+    setTimerStartedAt(minutes ? now : null);
+    setTimerEndAt(minutes ? now + minutes * 60_000 : null);
     setTimerOpen(false);
     setActivityTick((tick) => tick + 1);
   };
@@ -291,17 +284,12 @@ export default function App() {
 
   useEffect(() => {
     window.clearTimeout(sleepTimer.current);
-    if (!timerStartedAt || !timerEndAt || !playing || !engine.current) return undefined;
+    if (!timerEndAt || !playing || !engine.current) return undefined;
 
     const activeEngine = engine.current;
-    const timerDuration = timerEndAt - timerStartedAt;
-    const fadeDuration = Math.min(
-      SLEEP_FADE_DURATION,
-      Math.max(Math.round(timerDuration * 0.2), 1_000),
-    );
-    const delay = Math.max(timerEndAt - Date.now() - fadeDuration, 0);
+    const delay = Math.max(timerEndAt - Date.now() - SLEEP_FADE_DURATION, 0);
     sleepTimer.current = window.setTimeout(async () => {
-      await activeEngine.fadeOutAndStop(fadeDuration);
+      await activeEngine.fadeOutAndStop(SLEEP_FADE_DURATION);
       if (engine.current === activeEngine) {
         wantsPlayback.current = false;
         engine.current = null;
@@ -316,15 +304,13 @@ export default function App() {
     }, delay);
 
     return () => window.clearTimeout(sleepTimer.current);
-  }, [playing, timerStartedAt, timerEndAt]);
+  }, [playing, timerEndAt]);
 
   useEffect(() => {
     if (!timerEndAt) return undefined;
-    const timerDuration = timerStartedAt ? timerEndAt - timerStartedAt : Infinity;
-    const refreshRate = timerDuration <= 60_000 ? 1_000 : 30_000;
-    const interval = window.setInterval(() => setClockTick((tick) => tick + 1), refreshRate);
+    const interval = window.setInterval(() => setClockTick((tick) => tick + 1), 30_000);
     return () => window.clearInterval(interval);
-  }, [timerStartedAt, timerEndAt]);
+  }, [timerEndAt]);
 
   useEffect(() => {
     mediaActions.current = { play: startPlayback, pause: pausePlayback };
@@ -391,13 +377,9 @@ export default function App() {
   }, []);
 
   const timerNow = !playing && timerPausedAt.current ? timerPausedAt.current : Date.now();
-  const timerRemaining = timerEndAt ? Math.max(timerEndAt - timerNow, 0) : null;
-  const timerLabel = timerRemaining === null
-    ? null
-    : timerRemaining <= 60_000
-      ? `${Math.max(1, Math.ceil(timerRemaining / 1_000))} sec`
-      : `${Math.ceil(timerRemaining / 60_000)} min`;
-  const timerDuration = timerStartedAt && timerEndAt ? timerEndAt - timerStartedAt : null;
+  const timerMinutes = timerEndAt
+    ? Math.max(1, Math.ceil((timerEndAt - timerNow) / 60_000))
+    : null;
   const status = loading
     ? 'Loading'
     : locked
@@ -508,9 +490,9 @@ export default function App() {
                 onPointerDown={beginTimerHold}
                 onPointerUp={cancelTimerHold}
                 onPointerLeave={cancelTimerHold}
-                aria-label={timerLabel ? `Sleep timer, ${timerLabel} remaining` : 'Open sleep timer'}
+                aria-label={timerMinutes ? `Sleep timer, ${timerMinutes} minutes remaining` : 'Open sleep timer'}
               >
-                {timerLabel || 'Timer'}
+                {timerMinutes ? `${timerMinutes} min` : 'Timer'}
               </Button>
               <Button
                 type="text"
@@ -560,20 +542,20 @@ export default function App() {
         rootClassName="timer-drawer"
       >
         <div className="timer-options">
-          {TIMER_OPTIONS.map((option) => (
+          {[10, 20, 30, 60].map((minutes) => (
             <Button
-              key={option.duration}
+              key={minutes}
               size="large"
-              type={timerDuration === option.duration ? 'primary' : 'default'}
-              onClick={() => chooseTimer(option.duration)}
+              type={timerMinutes === minutes ? 'primary' : 'default'}
+              onClick={() => chooseTimer(minutes)}
             >
-              {option.label}
+              {minutes} minutes
             </Button>
           ))}
           {timerEndAt && (
             <Button type="text" danger onClick={() => chooseTimer(null)}>Turn timer off</Button>
           )}
-          <Text className="timer-note">Sound fades gently before the timer ends.</Text>
+          <Text className="timer-note">Sound fades gently during the final minute.</Text>
         </div>
       </Drawer>
     </main>
