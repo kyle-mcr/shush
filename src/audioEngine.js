@@ -4,6 +4,7 @@ const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
 // iOS intentionally exposes media volume as read-only. Keeping playback on the
 // native media element allows it to continue when the PWA is backgrounded.
 export const SUPPORTS_SOFTWARE_VOLUME = !IS_IOS;
+export const USE_NATIVE_MEDIA_CONTROLS = IS_IOS;
 
 export class ShushEngine {
   constructor({ onPlaybackChange } = {}) {
