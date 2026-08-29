@@ -8,11 +8,11 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: [
-        'icon.svg',
-        'favicon-32.png',
+        'favicon.ico',
+        'favicon-96x96.png',
         'apple-touch-icon.png',
-        'icon-192.png',
-        'icon-512.png',
+        'web-app-manifest-192x192.png',
+        'web-app-manifest-512x512.png',
         'media-artwork.png',
         'audio/soothing-shush.m4a',
       ],
@@ -29,13 +29,13 @@ export default defineConfig({
         scope: './',
         icons: [
           {
-            src: 'icon-192.png',
+            src: 'web-app-manifest-192x192.png',
             sizes: '192x192',
             type: 'image/png',
-            purpose: 'any',
+            purpose: 'any maskable',
           },
           {
-            src: 'icon-512.png',
+            src: 'web-app-manifest-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable',

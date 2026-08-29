@@ -23,7 +23,7 @@ const MEDIA_ARTWORK_URL = new URL(
   window.location.href,
 ).href;
 const MEDIA_ICON_URL = new URL(
-  `${import.meta.env.BASE_URL}icon-192.png`,
+  `${import.meta.env.BASE_URL}web-app-manifest-192x192.png`,
   window.location.href,
 ).href;
 
