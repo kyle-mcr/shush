@@ -1,7 +1,49 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#050807"/>
-  <circle cx="256" cy="256" r="132" fill="none" stroke="#263d33" stroke-width="4"/>
-  <circle cx="256" cy="256" r="94" fill="none" stroke="#314d40" stroke-width="5"/>
-  <circle cx="256" cy="256" r="58" fill="#182820"/>
-  <path d="M238 218v76l64-38-64-38z" fill="#8da399"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Shush moon</title>
+  <defs>
+    <radialGradient id="sky" cx="50%" cy="42%" r="72%">
+      <stop offset="0" stop-color="#101b17"/>
+      <stop offset="0.58" stop-color="#07100d"/>
+      <stop offset="1" stop-color="#030706"/>
+    </radialGradient>
+    <radialGradient id="moon" cx="31%" cy="25%" r="83%">
+      <stop offset="0" stop-color="#87988f"/>
+      <stop offset="0.38" stop-color="#62736b"/>
+      <stop offset="0.76" stop-color="#34453e"/>
+      <stop offset="1" stop-color="#18241f"/>
+    </radialGradient>
+    <linearGradient id="moonShade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0.35" stop-color="#d1dad5" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#020504" stop-opacity="0.38"/>
+    </linearGradient>
+    <radialGradient id="halo">
+      <stop offset="0.52" stop-color="#769285" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#769285" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#sky)"/>
+  <circle cx="256" cy="260" r="194" fill="url(#halo)" filter="url(#glow)"/>
+
+  <g fill="#8ba097">
+    <circle cx="104" cy="118" r="3" opacity="0.55"/>
+    <circle cx="396" cy="102" r="5" opacity="0.42"/>
+    <circle cx="434" cy="226" r="2.5" opacity="0.62"/>
+    <circle cx="84" cy="302" r="2.5" opacity="0.38"/>
+    <circle cx="402" cy="398" r="3" opacity="0.5"/>
+    <circle cx="121" cy="408" r="4" opacity="0.3"/>
+  </g>
+  <g fill="#b0a990">
+    <circle cx="153" cy="76" r="2" opacity="0.5"/>
+    <circle cx="446" cy="154" r="2" opacity="0.42"/>
+  </g>
+
+  <circle cx="256" cy="256" r="140" fill="#101814" stroke="#80938a" stroke-opacity="0.17" stroke-width="4"/>
+  <circle cx="256" cy="250" r="136" fill="url(#moon)"/>
+  <circle cx="256" cy="250" r="136" fill="url(#moonShade)"/>
+  <ellipse cx="220" cy="199" rx="76" ry="68" fill="#d9e0dc" opacity="0.035"/>
+  <path d="M235 198c0-7 8-11 14-7l76 50c6 4 6 13 0 17l-76 50c-6 4-14 0-14-7V198z" fill="#c4d1ca" opacity="0.9"/>
 </svg>

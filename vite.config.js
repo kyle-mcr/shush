@@ -7,11 +7,19 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png', 'audio/soothing-shush.m4a'],
+      includeAssets: [
+        'icon.svg',
+        'favicon-32.png',
+        'apple-touch-icon.png',
+        'icon-192.png',
+        'icon-512.png',
+        'audio/soothing-shush.m4a',
+      ],
       manifest: {
-        name: 'Shush — Baby Sleep Sound',
+        id: './',
+        name: 'Shush — Soothing Baby Sleep Sound',
         short_name: 'Shush',
-        description: 'A gentle shushing sound and white noise for quiet moments.',
+        description: 'A calming loop of gentle shushing and white noise for babies.',
         theme_color: '#050807',
         background_color: '#050807',
         display: 'standalone',
