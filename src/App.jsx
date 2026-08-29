@@ -508,9 +508,9 @@ export default function App() {
             {Array.from({ length: 7 }, (_, index) => <span key={index} />)}
           </div>
 
-          <div className="volume-control">
-            <SoundOutlined aria-hidden="true" />
-            {SUPPORTS_SOFTWARE_VOLUME ? (
+          {SUPPORTS_SOFTWARE_VOLUME && (
+            <div className="volume-control">
+              <SoundOutlined aria-hidden="true" />
               <Slider
                 min={0}
                 max={100}
@@ -520,10 +520,8 @@ export default function App() {
                 tooltip={{ formatter: (value) => `${value}%` }}
                 aria-label="Volume"
               />
-            ) : (
-              <Text className="device-volume-hint">Use phone volume buttons</Text>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </section>
 

@@ -449,12 +449,6 @@ button, input { font: inherit; }
 
 .volume-control .ant-slider:hover .ant-slider-track { background: #4a6257; }
 
-.device-volume-hint.ant-typography {
-  color: #4b5d54;
-  font-size: 12px;
-  letter-spacing: .02em;
-}
-
 .is-playing .play-button.ant-btn {
   box-shadow:
     inset -30px -23px 42px rgba(1, 5, 3, .29),
