@@ -11,7 +11,6 @@ import { Button, Drawer, Slider, Typography } from 'antd';
 import {
   ShushEngine,
   SUPPORTS_SOFTWARE_VOLUME,
-  USE_NATIVE_MEDIA_CONTROLS,
 } from './audioEngine';
 
 const { Text } = Typography;
@@ -320,10 +319,6 @@ export default function App() {
     if (!('mediaSession' in navigator)) return undefined;
 
     updateMediaMetadata();
-
-    // Native iOS controls remain responsive while the PWA is suspended.
-    // WebKit may omit custom metadata in this mode, but playback is reliable.
-    if (USE_NATIVE_MEDIA_CONTROLS) return undefined;
 
     const handlers = {
       play: () => mediaActions.current.play?.(),
