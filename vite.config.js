@@ -13,7 +13,6 @@ export default defineConfig({
         'apple-touch-icon.png',
         'web-app-manifest-192x192.png',
         'web-app-manifest-512x512.png',
-        'media-artwork.png',
         'audio/soothing-shush.m4a',
       ],
       manifest: {

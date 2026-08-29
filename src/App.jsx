@@ -8,7 +8,7 @@ import {
   UnlockOutlined,
 } from '@ant-design/icons';
 import { Button, Drawer, Slider, Typography } from 'antd';
-import { ShushEngine } from './audioEngine';
+import { ShushEngine, SUPPORTS_SOFTWARE_VOLUME } from './audioEngine';
 
 const { Text } = Typography;
 const BLACKOUT_DELAY = 6500;
@@ -19,7 +19,7 @@ const MOON_TEXTURE_URL = new URL(
   window.location.href,
 ).href;
 const MEDIA_ARTWORK_URL = new URL(
-  `${import.meta.env.BASE_URL}media-artwork.png`,
+  `${import.meta.env.BASE_URL}web-app-manifest-512x512.png`,
   window.location.href,
 ).href;
 const MEDIA_ICON_URL = new URL(
@@ -69,6 +69,7 @@ export default function App() {
   const mediaActions = useRef({});
   const wantsPlayback = useRef(false);
   const playbackTransition = useRef(null);
+  const timerPausedAt = useRef(null);
 
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -107,8 +108,34 @@ export default function App() {
     };
   }, []);
 
+  const handleActualPlaybackChange = useCallback((isPlaying) => {
+    if (isPlaying) {
+      if (timerPausedAt.current) {
+        const pausedFor = Date.now() - timerPausedAt.current;
+        setTimerStartedAt((startedAt) => startedAt ? startedAt + pausedFor : null);
+        setTimerEndAt((endAt) => endAt ? endAt + pausedFor : null);
+        timerPausedAt.current = null;
+      }
+      wantsPlayback.current = true;
+      updateExternalPlaybackState(true);
+      setPlaying(true);
+      setActivityTick((tick) => tick + 1);
+      return;
+    }
+
+    if (!timerPausedAt.current) timerPausedAt.current = Date.now();
+    wantsPlayback.current = false;
+    updateExternalPlaybackState(false);
+    setPlaying(false);
+    setLoading(false);
+    setLaunching(false);
+    setLocked(false);
+    setBlackedOut(false);
+  }, []);
+
   const pausePlayback = useCallback(() => {
     wantsPlayback.current = false;
+    if (!timerPausedAt.current) timerPausedAt.current = Date.now();
     window.clearTimeout(launchTimer.current);
     void engine.current?.pause();
     updateExternalPlaybackState(false);
@@ -129,7 +156,7 @@ export default function App() {
       const isNewEngine = !activeEngine;
 
       if (!activeEngine) {
-        activeEngine = new ShushEngine();
+        activeEngine = new ShushEngine({ onPlaybackChange: handleActualPlaybackChange });
         activeEngine.setVolume(volume / 100);
         engine.current = activeEngine;
         setLaunching(true);
@@ -170,7 +197,7 @@ export default function App() {
       if (playbackTransition.current === request) playbackTransition.current = null;
     });
     return request;
-  }, [volume]);
+  }, [handleActualPlaybackChange, volume]);
 
   const togglePlayback = () => {
     if (suppressNextTap.current) {
@@ -236,6 +263,7 @@ export default function App() {
 
   const chooseTimer = (minutes) => {
     const now = Date.now();
+    timerPausedAt.current = minutes && !playing ? now : null;
     setTimerStartedAt(minutes ? now : null);
     setTimerEndAt(minutes ? now + minutes * 60_000 : null);
     setTimerOpen(false);
@@ -265,6 +293,7 @@ export default function App() {
         setPlaying(false);
         setLocked(false);
         setBlackedOut(false);
+        timerPausedAt.current = null;
         setTimerStartedAt(null);
         setTimerEndAt(null);
       }
@@ -318,9 +347,10 @@ export default function App() {
         return;
       }
 
+      const now = !playing && timerPausedAt.current ? timerPausedAt.current : Date.now();
       const duration = Math.max((timerEndAt - timerStartedAt) / 1000, 1);
       const position = Math.min(
-        Math.max((Date.now() - timerStartedAt) / 1000, 0),
+        Math.max((now - timerStartedAt) / 1000, 0),
         Math.max(duration - 0.01, 0),
       );
       navigator.mediaSession.setPositionState({ duration, playbackRate: 1, position });
@@ -338,8 +368,9 @@ export default function App() {
     engine.current?.stop();
   }, []);
 
+  const timerNow = !playing && timerPausedAt.current ? timerPausedAt.current : Date.now();
   const timerMinutes = timerEndAt
-    ? Math.max(1, Math.ceil((timerEndAt - Date.now()) / 60_000))
+    ? Math.max(1, Math.ceil((timerEndAt - timerNow) / 60_000))
     : null;
   const status = loading
     ? 'Loading'
@@ -479,15 +510,19 @@ export default function App() {
 
           <div className="volume-control">
             <SoundOutlined aria-hidden="true" />
-            <Slider
-              min={0}
-              max={100}
-              value={volume}
-              onChange={changeVolume}
-              disabled={locked}
-              tooltip={{ formatter: (value) => `${value}%` }}
-              aria-label="Volume"
-            />
+            {SUPPORTS_SOFTWARE_VOLUME ? (
+              <Slider
+                min={0}
+                max={100}
+                value={volume}
+                onChange={changeVolume}
+                disabled={locked}
+                tooltip={{ formatter: (value) => `${value}%` }}
+                aria-label="Volume"
+              />
+            ) : (
+              <Text className="device-volume-hint">Use phone volume buttons</Text>
+            )}
           </div>
         </div>
       </section>
